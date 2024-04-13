@@ -52,18 +52,17 @@ export default function Aside() {
           placeholder={""}
           className="text-sm font-semibold px-6 shadow-none border-none "
           onClick={() => handleOpen(1)}
-          children={
-            <div className="w-full flex justify-between items-center">
-              <span>Participants</span>
-              <div className="bg-primary-blue-accent p-2 rounded-3xl flex items-center gap-x-2">
-                <span className="text-primary-blue text-xs font-semibold">
-                  Add Participant
-                </span>
-                <UserAddIcon className="h-4 w-4" />
-              </div>
+        >
+          <div className="w-full flex justify-between items-center">
+            <span>Participants</span>
+            <div className="bg-primary-blue-accent p-2 rounded-3xl flex items-center gap-x-2">
+              <span className="text-primary-blue text-xs font-semibold">
+                Add Participant
+              </span>
+              <UserAddIcon className="h-4 w-4" />
             </div>
-          }
-        />
+          </div>
+        </AccordionHeader>
         <AccordionBody className="py-0 px-3 bg-secondary-70">
           <div className="py-6 pr-3 flex flex-col gap-y-3 h-[262px] overflow-y-auto">
             {[0, 1, 2, 3, 4, 5].map((item) => {
@@ -91,46 +90,46 @@ export default function Aside() {
             placeholder={""}
             className="text-sm font-semibold px-6 shadow-none border-none"
             onClick={() => {}}
-            children={
-              <div className="w-full flex justify-between items-center">
-                <span>Chats</span>
-                <TabsHeader
-                  onPointerEnterCapture={""}
-                  onPointerLeaveCapture={""}
-                  placeholder={""}
-                  className="bg-primary-blue-accent rounded-full"
-                  indicatorProps={{
-                    className:
-                      "bg-primary-blue text-primary-white shadow-none rounded-full px-4 py-2",
-                  }}
-                >
-                  {data.map(({ label, value }) => (
-                    <Tab
-                      onPointerEnterCapture={""}
-                      onPointerLeaveCapture={""}
-                      placeholder={""}
-                      key={value}
-                      value={value}
-                      className="w-20"
-                      onClick={() => setSelectedTab(value)}
+          >
+            {" "}
+            <div className="w-full flex justify-between items-center">
+              <span>Chats</span>
+              <TabsHeader
+                onPointerEnterCapture={""}
+                onPointerLeaveCapture={""}
+                placeholder={""}
+                className="bg-primary-blue-accent rounded-full"
+                indicatorProps={{
+                  className:
+                    "bg-primary-blue text-primary-white shadow-none rounded-full px-4 py-2",
+                }}
+              >
+                {data.map(({ label, value }) => (
+                  <Tab
+                    onPointerEnterCapture={""}
+                    onPointerLeaveCapture={""}
+                    placeholder={""}
+                    key={value}
+                    value={value}
+                    className="w-20"
+                    onClick={() => setSelectedTab(value)}
+                  >
+                    <div
+                      className={classNames(
+                        {
+                          "text-primary-white": value === selectedTab,
+                          "text-primary-blue": value !== selectedTab,
+                        },
+                        "flex items-center gap-2 text-xs font-semibold text-primary-blue"
+                      )}
                     >
-                      <div
-                        className={classNames(
-                          {
-                            "text-primary-white": value === selectedTab,
-                            "text-primary-blue": value !== selectedTab,
-                          },
-                          "flex items-center gap-2 text-xs font-semibold text-primary-blue"
-                        )}
-                      >
-                        {label}
-                      </div>
-                    </Tab>
-                  ))}
-                </TabsHeader>
-              </div>
-            }
-          />
+                      {label}
+                    </div>
+                  </Tab>
+                ))}
+              </TabsHeader>
+            </div>
+          </AccordionHeader>
           <AccordionBody className="py-0 px-3 bg-secondary-70">
             <div
               className={classNames(
