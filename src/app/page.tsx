@@ -2,8 +2,10 @@ import { LinkIcon, LogoIcon } from "@/components/icons";
 import classNames from "classnames";
 import { montserratFont } from "../../styles/fonts";
 import { meetLink } from "@/utils/common";
+import { v1 as uuid } from "uuid";
 
 export default function Home() {
+  const id = uuid();
   return (
     <main
       className={classNames(
@@ -41,7 +43,7 @@ export default function Home() {
           </p>
           <div className="flex gap-4 items-center">
             <a
-              href={`/${meetLink}?jnm=public`}
+              href={`/${meetLink}/join?uuid=${id}&cnm=public`}
               className="flex justify-center items-center text-lg font-semibold text-primary-white bg-primary-blue hover:bg-primary-blue-accent hover:text-primary-blue px-6 h-12"
             >
               <span>Start an instant meeting</span>

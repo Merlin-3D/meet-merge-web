@@ -1,5 +1,6 @@
+"use client";
 import { SocketProvider } from "@/core/socket-context";
-import { randUserId } from "@/utils/common";
+import { useSearchParams } from "next/navigation";
 
 export default function MeetLayout({
   params: { meet },
@@ -8,9 +9,11 @@ export default function MeetLayout({
   children: React.ReactNode;
   params: { meet: string };
 }) {
+  const searchParams = useSearchParams();
+  const uuid = searchParams.get("uuid");
   return (
     <>
-      <SocketProvider query={{ callerId: 1, roomName: meet }}>
+      <SocketProvider query={{ userId: uuid, roomName: meet }}>
         {children}
       </SocketProvider>
     </>

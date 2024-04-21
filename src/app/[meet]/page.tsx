@@ -1,6 +1,6 @@
 "use client";
 
-import { RemoteCard } from "@/components";
+import { RemoteCard, VideoPlayer } from "@/components";
 import { ScreenIcon } from "@/components/icons";
 import { useSocketContext } from "@/core/socket-context";
 import Aside from "@/layouts/aside";
@@ -8,7 +8,11 @@ import Footer from "@/layouts/footer";
 import Header from "@/layouts/header";
 import { Spinner } from "@material-tailwind/react";
 import { useSearchParams } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 import React from "react";
+import Peer, { SignalData } from "simple-peer";
+import { debuglog } from "util";
+import _, { isEmpty } from "lodash";
 
 const remotesList = [
   {
@@ -60,22 +64,197 @@ const remotesList = [
     url: "https://randomuser.me/api/portraits/men/43.jpg",
   },
 ];
-export default function Meet() {
-  const { startMeeting, isJoinMeet, joinMeeting } = useSocketContext();
-  const searchParams = useSearchParams();
 
-  const meetQuery = searchParams.get("jnm");
+const Video = (props: any) => {
+  const ref = React.useRef<HTMLVideoElement>(null);
+
   React.useEffect(() => {
-    console.log(meetQuery);
-    if (meetQuery) {
-      startMeeting("001");
-    } else {
-      joinMeeting("002");
+    if (ref.current) {
+      ref.current.srcObject = props.peer.peer.streams[0];
     }
-    return () => {};
   }, []);
 
-  return isJoinMeet ? (
+  return <video playsInline autoPlay muted ref={ref} />;
+};
+
+export default function Meet({
+  params: { meet },
+}: {
+  params: { meet: string };
+}) {
+  const searchParams = useSearchParams();
+  const uuid = searchParams.get("uuid");
+
+  const socket = io("http://localhost:5000", {
+    query: { userId: uuid, roomName: meet },
+  });
+
+  const [peers, setPeers] = React.useState<any[]>([]);
+  const peersRef = React.useRef<any[]>([]);
+
+  const [muteSound, setMuteSound] = React.useState(true);
+
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  const role = searchParams.get("rl");
+
+  React.useEffect(() => {
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        if (role === "mdr") {
+          socket.emit("creat room", { roomID: meet, role: "OWNER" });
+        } else {
+          socket.emit("join room", { roomID: meet, role: "INVITE" });
+        }
+
+        socket.on("all users", (users: any[]) => {
+          let peers: any = [];
+
+          users.forEach((userID: string, i) => {
+            console.log({ userID });
+            const peer = creatPeer(userID, socket.id!, stream);
+
+            // peersRef.current.push({
+            //   peerID: userID,
+            //   peer,
+            // });
+
+            const existingPeer = _.find(peersRef.current, {
+              peerID: userID,
+            });
+
+            if (!existingPeer) {
+              peersRef.current.push({
+                peerID: userID,
+                peer,
+              });
+            }
+            peers.push(peer);
+          });
+
+          // setPeers(peers);
+          setPeers((prevPeers: any) => [...prevPeers, peers]);
+        });
+
+        socket.on("user joined", (payload) => {
+          let peers: any = [];
+
+          const peer = addPeer(payload.signal, payload.callerID, stream);
+
+          peers.push(peer);
+
+          const existingPeer = _.find(peersRef.current, {
+            peerID: payload.callerID,
+          });
+
+          if (!existingPeer) {
+            peersRef.current.push({
+              peerID: payload.callerID,
+              peer,
+            });
+          }
+          setPeers((prevPeers: any) => [...prevPeers, peers]);
+        });
+
+        socket.on("receiving returned signal", (payload) => {
+          // const item = peersRef.current.find(
+          //   (p: any) => p.peerID === payload.id
+          // );
+          // item.peer.signal(payload.signal);
+        });
+      });
+  }, []);
+
+  function creatPeer(
+    userToSignal: string,
+    callerID: string,
+    stream: MediaStream
+  ) {
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream: stream,
+      config: {
+        iceServers: [
+          {
+            urls: [
+              "turn:192.158.29.39:3478?transport=udp",
+              "turn:192.158.29.39:3478?transport=tcp",
+            ],
+            credential: "JZEOEt2V3Qb0y27GRntt2u2PAYA=",
+            username: "28224511:1379330808",
+          },
+          {
+            urls: "turn:turn.bistri.com:80",
+            credential: "homeo",
+            username: "homeo",
+          },
+        ],
+      },
+    });
+    peer.on("signal", (signal) => {
+      socket.emit("sending signal", {
+        userToSignal,
+        callerID,
+        signal,
+      });
+    });
+    return peer;
+  }
+
+  function addPeer(
+    incomingSignal: SignalData,
+    callerID: string,
+    stream: MediaStream
+  ) {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream: stream,
+    });
+    peer.on("signal", (signal) => {
+      socket.emit("returning signal", {
+        signal,
+        callerID,
+      });
+    });
+    peer.on("stream", (currentStream) => {
+      // console.log(currentStream);
+    });
+
+    peer.signal(incomingSignal);
+    return peer;
+  }
+
+  const toggleFullscreen = () => {
+    if (videoRef.current) {
+      if (videoRef.current.requestFullscreen) {
+        videoRef.current.requestFullscreen();
+      }
+      videoRef.current.controls = false;
+    }
+  };
+
+  const setLocalVideo = async () => {
+    if (videoRef.current) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach((track) => {
+          if (track.kind === "video") {
+            track.stop();
+          }
+        });
+      }
+    } else {
+    }
+  };
+
+  return (
     <>
       <Header />
       <Aside />
@@ -84,7 +263,7 @@ export default function Meet() {
           className="flex flex-col gap-y-4 w-60 overflow-x-auto"
           style={{ scrollBehavior: "smooth", direction: "rtl" }}
         >
-          {remotesList.map((item) => {
+          {/* {remotesList.map((item) => {
             return (
               <RemoteCard
                 key={item.url}
@@ -92,23 +271,32 @@ export default function Meet() {
                 urlImage={item.url}
               />
             );
-          })}
+          })} */}
+
+          {!isEmpty(peersRef) ? (
+            peersRef.current.map((peer: any, index: any) => {
+              if (peer) {
+                return <Video key={index} peer={peer} />;
+              }
+            })
+          ) : (
+            <></>
+          )}
         </div>
         <div className="relative w-full">
-          <img
-            src={"/assets/moderateur.png"}
-            alt=""
-            width={500}
-            height={500}
-            className="w-full h-full object-cover rounded-xl"
-          />
+          <div className="h-full w-full">
+            <VideoPlayer mute={muteSound} videoRef={videoRef} />
+          </div>
           <div className="absolute bottom-4 left-4 z-20">
             <div className="bg-gray-600/30 px-4 py-1 rounded-2xl">
               <h5 className="text-white text-base">Adam Joseph</h5>
             </div>
           </div>
           <div className="absolute top-4 right-4 z-20">
-            <button className="bg-gray-600/30 hover:bg-white/20 p-4 rounded-full">
+            <button
+              onClick={toggleFullscreen}
+              className="bg-gray-600/30 hover:bg-white/20 p-4 rounded-full"
+            >
               <ScreenIcon />
             </button>
           </div>
@@ -161,19 +349,11 @@ export default function Meet() {
           </div>
         </div>
       </main>
-      <Footer />
-    </>
-  ) : (
-    <section className="flex items-center justify-center h-screen w-screen bg-secondary-100 gap-x-4">
-      <Spinner
-        color="blue"
-        className="h-8 w-8"
-        onPointerEnterCapture={""}
-        onPointerLeaveCapture={""}
+      <Footer
+        muted={muteSound}
+        setMuted={() => setMuteSound(!muteSound)}
+        desableVideo={() => setLocalVideo()}
       />
-      <span className="text-4xl font-semibold text-primary-white">
-        Loading...
-      </span>
-    </section>
+    </>
   );
 }
